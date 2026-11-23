@@ -1,0 +1,31 @@
+{
+  "name": "pointage-prudhommes-mobile",
+  "version": "1.0.0",
+  "description": "Application Android autonome (Local-First) de pointage juridique scellé SHA-256 avec synchronisation Google Drive (0 EUR/mois)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npm run build && npx cap sync android",
+    "test:compat": "node tests/test_compat_csv.mjs"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.2.0",
+    "@capacitor/camera": "^6.1.0",
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/filesystem": "^6.0.3",
+    "@capacitor/geolocation": "^6.1.0",
+    "@capacitor/network": "^6.0.3",
+    "@capacitor/share": "^6.0.3",
+    "exifr": "^7.1.3",
+    "jspdf": "^2.5.2",
+    "jszip": "^3.10.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "vite": "^6.0.11"
+  }
+}

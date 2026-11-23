@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Pointage Prud'hommes — Mobile</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <!-- ÉCRAN VERROUILLAGE PIN LOCAL (SI CONFIGURÉ) -->
+  <div id="pinOverlay" class="overlay hidden">
+    <div class="modal-card pin-card">
+      <div class="pin-badge">🔐</div>
+      <h2>Accès Sécurisé</h2>
+      <p class="muted">Saisissez votre code PIN local pour accéder au registre scellé SHA-256.</p>
+      <input type="password" id="pinUnlockInput" inputmode="numeric" placeholder="Code PIN" class="input" />
+      <div id="pinUnlockError" class="alert-error hidden"></div>
+      <button id="btnPinUnlock" class="btn btn-emerald btn-block">Déverrouiller</button>
+    </div>
+  </div>
+
+  <!-- BARRE SUPÉRIEURE -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <span class="logo-pill">🛡️</span>
+      <div>
+        <div class="topbar-title">Pointage Prud'hommes</div>
+        <div class="topbar-sub" id="liveClock">--:--:-- • Europe/Paris</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button id="btnQuickSync" class="sync-pill" title="Synchroniser Google Drive">
+        <span class="dot" id="syncDot"></span>
+        <span id="syncPillText">Local</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ZONE DE NOTIFICATION TOAST -->
+  <div id="toastBanner" class="toast hidden"></div>
+
+  <!-- CONTENU PRINCIPAL (4 ONGLETS) -->
+  <main class="main-content">
+
+    <!-- ==================== ONGLET 1 : POINTER ==================== -->
+    <section id="tab-pointer" class="tab-panel active">
+      <!-- Encart anomalies proactives -->
+      <div id="anomaliesBox" class="card card-warning hidden"></div>
+
+      <!-- Statut du jour & Bouton Séquentiel Guidé -->
+      <div class="card card-hero">
+        <div class="hero-status-row">
+          <span class="badge badge-info" id="todayDateBadge">--</span>
+          <span class="badge" id="todayStateBadge">--</span>
+        </div>
+        <div class="hero-statut-text" id="todayStatusLabel">Chargement...</div>
+
+        <!-- Prévisualisation photo attachée -->
+        <div id="photoPreviewWrap" class="photo-preview hidden">
+          <img id="photoPreviewImg" alt="Aperçu preuve" />
+          <div class="photo-preview-meta">
+            <div id="photoPreviewInfo" class="small"></div>
+            <button type="button" id="btnClearPhoto" class="btn btn-sm btn-danger">Retirer</button>
+          </div>
+        </div>
+
+        <!-- Sélecteur photo (Caméra / Galerie) -->
+        <div class="row-2 mt-12">
+          <button type="button" id="btnTakePhoto" class="btn btn-slate">📸 Prendre Photo</button>
+          <button type="button" id="btnPickGallery" class="btn btn-slate">🖼️ Galerie</button>
+          <input type="file" id="hiddenPhotoInput" accept="image/*" capture="environment" class="hidden" />
+          <input type="file" id="hiddenGalleryInput" accept="image/*" class="hidden" />
+        </div>
+
+        <!-- Bouton principal séquentiel -->
+        <button type="button" id="btnPrimaryAction" class="btn btn-primary-big mt-12">
+          🟢 Entrée (Matin)
+        </button>
+
+        <!-- Bouton secondaire (Sortie rapide si soir >= 16h ou pause) -->
+        <button type="button" id="btnSecondarySortie" class="btn btn-danger btn-block mt-8 hidden">
+          🔴 Clôturer — Sortie (Soir)
+        </button>
+
+        <!-- Actions secondaires rapides -->
+        <div class="quick-grid mt-12">
+          <button type="button" id="btnQuickGps" class="btn btn-outline">📍 GPS Seul</button>
+          <button type="button" id="btnQuickPhoto" class="btn btn-outline">📸 Preuve Photo</button>
+          <button type="button" id="btnToggleIncident" class="btn btn-outline-danger">⚠️ Incident</button>
+          <button type="button" id="btnToggleNote" class="btn btn-outline">📝 Note</button>
+        </div>
+
+        <!-- Formulaire Incident / Note dépliable -->
+        <div id="motifDrawer" class="drawer hidden mt-12">
+          <div class="drawer-title" id="motifDrawerTitle">Consigner un fait</div>
+          <textarea id="motifInput" rows="3" class="input" placeholder="Décrivez précisément le fait constaté..."></textarea>
+          <div class="row-2 mt-8">
+            <button type="button" id="btnSubmitMotif" class="btn btn-emerald">🔐 Sceller</button>
+            <button type="button" id="btnCancelMotif" class="btn btn-slate">Annuler</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Journal du jour en direct -->
+      <div class="card">
+        <div class="card-header">
+          <h3>📋 Journal d'aujourd'hui</h3>
+          <button type="button" id="btnUndoLast" class="btn btn-sm btn-outline-danger">↩️ Annuler dernier</button>
+        </div>
+        <div id="todayEventsList" class="timeline-list"></div>
+      </div>
+    </section>
+
+    <!-- ==================== ONGLET 2 : AGENDA & TOP 3 ==================== -->
+    <section id="tab-agenda" class="tab-panel">
+      <!-- KPI Globaux -->
+      <div class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Heures Cumulées</div>
+          <div class="kpi-value text-sky" id="kpiTotalHeures">0.00 h</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Journées Scellées</div>
+          <div class="kpi-value text-emerald" id="kpiTotalJours">0</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Score Probatoire</div>
+          <div class="kpi-value text-amber" id="kpiScoreMoyen">--/100</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Top 3 Élite</div>
+          <div class="kpi-value text-white" id="kpiTop3">0</div>
+        </div>
+      </div>
+
+      <!-- Filtres & Jours de repos -->
+      <div class="card">
+        <div class="card-header">
+          <h3>🎯 Filtre Top 3 & Repos Hebdo</h3>
+          <button type="button" id="btnFilterTop3" class="btn btn-sm btn-amber">Top 3 : OFF</button>
+        </div>
+        <div class="repos-chips" id="reposChips"></div>
+      </div>
+
+      <!-- Rubans hebdomadaires Kayak -->
+      <div id="weeksContainer" class="stack"></div>
+    </section>
+
+    <!-- ==================== ONGLET 3 : CHIFFRAGE CPH ==================== -->
+    <section id="tab-chiffrage" class="tab-panel">
+      <div class="card">
+        <h3>⚖️ Paramètres de Prescription (Art. L. 3245-1)</h3>
+        <div class="form-grid mt-12">
+          <label class="field">
+            <span>Période d'arriérés</span>
+            <select id="chifAnnees" class="input">
+              <option value="3">3 ans (Prescription triennale)</option>
+              <option value="2">2 ans (24 mois)</option>
+              <option value="1">1 an (12 mois)</option>
+              <option value="0">Période constatée seule</option>
+            </select>
+          </label>
+          <div class="row-2">
+            <label class="field">
+              <span>Salaire Brut (€/mois)</span>
+              <input type="number" step="0.01" id="chifSalaire" class="input" />
+            </label>
+            <label class="field">
+              <span>Taux Horaire (€/h)</span>
+              <input type="number" step="0.01" id="chifTaux" class="input" />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-gold">
+        <div class="small muted text-center">TOTAL GÉNÉRAL DES PRÉTENTIONS PRUD'HOMALES</div>
+        <div class="big-money" id="chifTotalGlobal">0,00 €</div>
+        <div class="small text-center muted" id="chifPeriodeLabel">--</div>
+        <button type="button" id="btnExportChiffragePdf" class="btn btn-amber btn-block mt-12">
+          📄 Générer Bordereau Chiffré PDF (Pièce n° 4)
+        </button>
+      </div>
+
+      <div class="card">
+        <h3>Détail Poste par Poste</h3>
+        <div id="chifPostesList" class="stack-sm mt-12"></div>
+      </div>
+    </section>
+
+    <!-- ==================== ONGLET 4 : EXPORTS & SYNC DRIVE ==================== -->
+    <section id="tab-sync" class="tab-panel">
+      <!-- Bloc Google Drive -->
+      <div class="card">
+        <div class="card-header">
+          <h3>☁️ Synchronisation Google Drive (15 Go Gratuits)</h3>
+          <span class="badge" id="syncQueueBadge">0 en attente</span>
+        </div>
+        <p class="small muted mt-8">
+          Synchronise automatiquement <code>pointage.csv</code>, le certificat SHA-256 et toutes vos photos dans votre dossier <strong>/POINTAGE_PRUDHOMMES/</strong> sans Google Cloud payant.
+        </p>
+
+        <div class="form-grid mt-12">
+          <label class="field">
+            <span>URL du script Google Apps Script (<code>.../exec</code>)</span>
+            <input type="url" id="driveUrlInput" class="input" placeholder="https://script.google.com/macros/s/.../exec" />
+          </label>
+          <label class="field">
+            <span>Clé Secrète 256 bits (identique dans <code>sync_drive.gs</code>)</span>
+            <div class="row-token">
+              <input type="text" id="driveTokenInput" class="input mono" placeholder="Cliquez sur Générer..." />
+              <button type="button" id="btnGenToken" class="btn btn-sm btn-slate">🔑 Générer</button>
+            </div>
+          </label>
+        </div>
+
+        <div class="row-2 mt-12">
+          <button type="button" id="btnSaveDriveCfg" class="btn btn-slate">💾 Enregistrer & Tester</button>
+          <button type="button" id="btnSyncNow" class="btn btn-emerald">☁️ Synchroniser</button>
+        </div>
+        <button type="button" id="btnRestoreDrive" class="btn btn-outline btn-block mt-8">
+          ⬇️ Restaurer tout depuis Google Drive (nouveau téléphone)
+        </button>
+        <div id="syncStatusBox" class="small muted mt-8"></div>
+      </div>
+
+      <!-- Bloc Exports Juridiques Hors-Ligne -->
+      <div class="card">
+        <h3>📦 Exports Juridiques (Générés sur le Téléphone)</h3>
+        <div class="stack-sm mt-12">
+          <button type="button" id="btnExportKitZip" class="btn btn-amber btn-block">📥 Kit Avocat Complet (.ZIP + Manifeste SHA-256)</button>
+          <button type="button" id="btnExportRapportPdf" class="btn btn-primary btn-block">📄 Rapport Officiel de Pointage (.PDF)</button>
+          <button type="button" id="btnExportTop3Pdf" class="btn btn-emerald btn-block">🏆 Synthèse Top 3 Preuves Hebdo (.PDF)</button>
+          <button type="button" id="btnExportCsvRaw" class="btn btn-slate btn-block">📊 Exporter pointage.csv + scellement SHA-256</button>
+        </div>
+        <div class="sha-box mt-12">
+          <div class="small muted">Sceau SHA-256 global actuel de pointage.csv :</div>
+          <code id="globalShaDisplay" class="mono small">--</code>
+        </div>
+      </div>
+
+      <!-- Bloc Reprise de l'historique existant -->
+      <div class="card">
+        <h3>📂 Importer Votre Historique Existant</h3>
+        <p class="small muted mt-8">
+          Reprenez en 1 clic vos 471 pointages depuis <code>pointage.csv</code> ainsi que vos photos (<code>preuves_photos/</code>) ou importez de nouvelles photos prises avec l'appareil photo (horodatage EXIF automatique).
+        </p>
+        <div class="stack-sm mt-12">
+          <label class="btn btn-slate btn-block file-btn">
+            📄 Importer pointage.csv existant
+            <input type="file" id="importCsvInput" accept=".csv,text/csv,text/plain" class="hidden" />
+          </label>
+          <label class="btn btn-slate btn-block file-btn">
+            📸 Importer lot de photos (preuves_photos / EXIF)
+            <input type="file" id="importPhotosInput" accept="image/*" multiple class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Bloc Sécurité PIN Local -->
+      <div class="card">
+        <h3>🔐 Verrouillage PIN Local (PBKDF2-SHA256)</h3>
+        <p class="small muted mt-8">Protégez l'ouverture de l'application sur votre téléphone par un code PIN local haché (aucun mot de passe en clair).</p>
+        <div class="row-2 mt-12">
+          <input type="password" id="newPinInput" inputmode="numeric" class="input" placeholder="Nouveau PIN (ex: 4-8 chiffres)" />
+          <button type="button" id="btnSavePin" class="btn btn-slate">Activer PIN</button>
+        </div>
+        <button type="button" id="btnDisablePin" class="btn btn-sm btn-outline-danger mt-8 hidden">Désactiver le code PIN</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- MODALE DÉTAIL JOURNÉE -->
+  <div id="dayModal" class="overlay hidden">
+    <div class="modal-card modal-scroll">
+      <div class="card-header">
+        <div>
+          <h3 id="modalDayTitle">Détail journée</h3>
+          <div id="modalDaySub" class="small muted"></div>
+        </div>
+        <button type="button" id="btnCloseDayModal" class="btn btn-sm btn-slate">✕</button>
+      </div>
+      <div id="modalDaySummary" class="kpi-grid mt-12"></div>
+      <h4 class="mt-12">Chronologie scellée</h4>
+      <div id="modalDayEvents" class="timeline-list mt-8"></div>
+      <h4 class="mt-12">Photos locales associées</h4>
+      <div id="modalDayPhotos" class="photo-grid mt-8"></div>
+      <div class="row-2 mt-12">
+        <button type="button" id="btnModalDayPdf" class="btn btn-primary">📄 PDF du jour</button>
+        <button type="button" id="btnModalDayDelete" class="btn btn-outline-danger">🗑️ Supprimer jour</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODALE DOUBLE CONFIRMATION SORTIE -->
+  <div id="confirmSortieModal" class="overlay hidden">
+    <div class="modal-card">
+      <h3>🔴 Confirmer la Sortie (Soir) ?</h3>
+      <p class="muted mt-8">
+        Cette action clôture définitivement votre journée de travail et calcule votre durée nette. Confirmez-vous la fin de service ?
+      </p>
+      <div class="row-2 mt-12">
+        <button type="button" id="btnConfirmSortieYes" class="btn btn-danger">✅ Oui, clôturer</button>
+        <button type="button" id="btnConfirmSortieNo" class="btn btn-slate">Annuler</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- BARRE DE NAVIGATION INFÉRIEURE -->
+  <nav class="bottom-nav">
+    <button type="button" class="nav-btn active" data-tab="pointer">
+      <span class="nav-ico">⏱️</span>
+      <span>Pointer</span>
+    </button>
+    <button type="button" class="nav-btn" data-tab="agenda">
+      <span class="nav-ico">📅</span>
+      <span>Agenda</span>
+    </button>
+    <button type="button" class="nav-btn" data-tab="chiffrage">
+      <span class="nav-ico">⚖️</span>
+      <span>Chiffrage</span>
+    </button>
+    <button type="button" class="nav-btn" data-tab="sync">
+      <span class="nav-ico">☁️</span>
+      <span>Drive & PDF</span>
+    </button>
+  </nav>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
