@@ -24,8 +24,14 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configurer Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Vérifier Android SDK pré-installé (API 34)
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          SDK_BIN="${ANDROID_HOME:-$ANDROID_SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDK_BIN" ]; then
+            yes | "$SDK_BIN" --licenses > /dev/null 2>&1 || true
+            "$SDK_BIN" "platforms;android-34" "build-tools;34.0.0" > /dev/null 2>&1 || true
+          fi
 
       - name: Installer les dépendances npm & construire l'app Web
         working-directory: .
